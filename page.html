@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB & HSV Color Explorer</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --panel-bg: #ffffff;
+            --text-color: #333333;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        #colorDisplay {
+            width: 100%;
+            height: 150px;
+            border-radius: 8px;
+            background-color: rgb(75, 150, 225);
+            margin-bottom: 30px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+            transition: background-color 0.1s;
+        }
+
+        .panels {
+            display: flex;
+            gap: 30px;
+        }
+
+        @media (max-width: 600px) {
+            .panels {
+                flex-direction: column;
+            }
+        }
+
+        .panel {
+            flex: 1;
+        }
+
+        h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            width: 20px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="colorDisplay"></div>
+
+    <div class="panels">
+        <div class="panel">
+            <h3>RGB Model</h3>
+            <div class="control-group">
+                <label style="color: red;">R</label>
+                <input type="range" id="sliderR" min="0" max="255" value="75">
+                <input type="number" id="numR" min="0" max="255" value="75">
+            </div>
+            <div class="control-group">
+                <label style="color: green;">G</label>
+                <input type="range" id="sliderG" min="0" max="255" value="150">
+                <input type="number" id="numG" min="0" max="255" value="150">
+            </div>
+            <div class="control-group">
+                <label style="color: blue;">B</label>
+                <input type="range" id="sliderB" min="0" max="255" value="225">
+                <input type="number" id="numB" min="0" max="255" value="225">
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>HSV Model</h3>
+            <div class="control-group">
+                <label>H</label>
+                <input type="range" id="sliderH" min="0" max="360" value="210">
+                <input type="number" id="numH" min="0" max="360" value="210">
+            </div>
+            <div class="control-group">
+                <label>S</label>
+                <input type="range" id="sliderS" min="0" max="100" value="67">
+                <input type="number" id="numS" min="0" max="100" value="67">
+            </div>
+            <div class="control-group">
+                <label>V</label>
+                <input type="range" id="sliderV" min="0" max="100" value="88">
+                <input type="number" id="numV" min="0" max="100" value="88">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // DOM Elements
+    const colorDisplay = document.getElementById('colorDisplay');
+    
+    // RGB Elements
+    const elsRGB = {
+        R: { slider: document.getElementById('sliderR'), num: document.getElementById('numR') },
+        G: { slider: document.getElementById('sliderG'), num: document.getElementById('numG') },
+        B: { slider: document.getElementById('sliderB'), num: document.getElementById('numB') }
+    };
+
+    // HSV Elements
+    const elsHSV = {
+        H: { slider: document.getElementById('sliderH'), num: document.getElementById('numH') },
+        S: { slider: document.getElementById('sliderS'), num: document.getElementById('numS') },
+        V: { slider: document.getElementById('sliderV'), num: document.getElementById('numV') }
+    };
+
+    let isUpdating = false;
+
+    // --- Math Conversions ---
+
+    function rgbToHsv(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const d = max - min;
+        let h = 0, s = (max === 0 ? 0 : d / max), v = max;
+
+        if (max !== min) {
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return {
+            h: Math.round(h * 360),
+            s: Math.round(s * 100),
+            v: Math.round(v * 100)
+        };
+    }
+
+    function hsvToRgb(h, s, v) {
+        h /= 360; s /= 100; v /= 100;
+        let r, g, b;
+        const i = Math.floor(h * 6);
+        const f = h * 6 - i;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+
+        switch (i % 6) {
+            case 0: r = v, g = t, b = p; break;
+            case 1: r = q, g = v, b = p; break;
+            case 2: r = p, g = v, b = t; break;
+            case 3: r = p, g = q, b = v; break;
+            case 4: r = t, g = p, b = v; break;
+            case 5: r = v, g = p, b = q; break;
+        }
+        return {
+            r: Math.round(r * 255),
+            g: Math.round(g * 255),
+            b: Math.round(b * 255)
+        };
+    }
+
+    // --- UI Updaters ---
+
+    function updateDisplayColor(r, g, b) {
+        colorDisplay.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function handleRgbChange() {
+        if (isUpdating) return;
+        isUpdating = true;
+
+        const r = parseInt(elsRGB.R.slider.value);
+        const g = parseInt(elsRGB.G.slider.value);
+        const b = parseInt(elsRGB.B.slider.value);
+
+        // Sync RGB number inputs
+        elsRGB.R.num.value = r;
+        elsRGB.G.num.value = g;
+        elsRGB.B.num.value = b;
+
+        // Calculate and update HSV
+        const hsv = rgbToHsv(r, g, b);
+        
+        elsHSV.H.slider.value = hsv.h; elsHSV.H.num.value = hsv.h;
+        elsHSV.S.slider.value = hsv.s; elsHSV.S.num.value = hsv.s;
+        elsHSV.V.slider.value = hsv.v; elsHSV.V.num.value = hsv.v;
+
+        updateDisplayColor(r, g, b);
+        isUpdating = false;
+    }
+
+    function handleHsvChange() {
+        if (isUpdating) return;
+        isUpdating = true;
+
+        const h = parseInt(elsHSV.H.slider.value);
+        const s = parseInt(elsHSV.S.slider.value);
+        const v = parseInt(elsHSV.V.slider.value);
+
+        // Sync HSV number inputs
+        elsHSV.H.num.value = h;
+        elsHSV.S.num.value = s;
+        elsHSV.V.num.value = v;
+
+        // Calculate and update RGB
+        const rgb = hsvToRgb(h, s, v);
+        
+        elsRGB.R.slider.value = rgb.r; elsRGB.R.num.value = rgb.r;
+        elsRGB.G.slider.value = rgb.g; elsRGB.G.num.value = rgb.g;
+        elsRGB.B.slider.value = rgb.b; elsRGB.B.num.value = rgb.b;
+
+        updateDisplayColor(rgb.r, rgb.g, rgb.b);
+        isUpdating = false;
+    }
+
+    // --- Event Listeners ---
+    
+    // Add listeners to RGB inputs
+    ['R', 'G', 'B'].forEach(key => {
+        elsRGB[key].slider.addEventListener('input', handleRgbChange);
+        elsRGB[key].num.addEventListener('input', (e) => {
+            elsRGB[key].slider.value = e.target.value;
+            handleRgbChange();
+        });
+    });
+
+    // Add listeners to HSV inputs
+    ['H', 'S', 'V'].forEach(key => {
+        elsHSV[key].slider.addEventListener('input', handleHsvChange);
+        elsHSV[key].num.addEventListener('input', (e) => {
+            elsHSV[key].slider.value = e.target.value;
+            handleHsvChange();
+        });
+    });
+
+    // Initialize
+    handleRgbChange();
+
+</script>
+</body>
+</html>
